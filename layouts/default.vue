@@ -1,20 +1,34 @@
 <template>
   <div>
-    <Nuxt />
+    <TheNavBar />
+    <b-container class="mt-4" fluid>
+      <b-row class="p-2">
+        <b-col cols="2">
+          <TheSidePanel />
+        </b-col>
+        <b-col cols="10">
+          <Nuxt />
+        </b-col>
+      </b-row>
+    </b-container>
   </div>
 </template>
+<script>
+import TheNavBar from '../components/TheNavBar'
+import TheSidePanel from '../components/TheSidePanel'
+
+export default {
+  components: {
+    TheNavBar,
+    TheSidePanel
+  }
+}
+</script>
 
 <style>
 html {
-  font-family:
-    'Source Sans Pro',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    'Helvetica Neue',
-    Arial,
-    sans-serif;
+  font-family: "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 16px;
   word-spacing: 1px;
   -ms-text-size-adjust: 100%;
@@ -30,33 +44,26 @@ html {
   box-sizing: border-box;
   margin: 0;
 }
+* {
+  padding: 0px;
+  margin: 0px;
+}
+a.nuxt-link-active {
+  color: yellow;
+  font-weight: bold;
+}
+/* exact link will show the primary color for only the exact matching link */
+a.nuxt-link-exact-active {
+  color: #00c58e;
+}
 
-.button--green {
-  display: inline-block;
-  border-radius: 4px;
-  border: 1px solid #3b8070;
-  color: #3b8070;
+a:hover{
   text-decoration: none;
-  padding: 10px 30px;
+  color: aquamarine;
+  font-size: 140%;
+}
+a{
+  color: yellow;
 }
 
-.button--green:hover {
-  color: #fff;
-  background-color: #3b8070;
-}
-
-.button--grey {
-  display: inline-block;
-  border-radius: 4px;
-  border: 1px solid #35495e;
-  color: #35495e;
-  text-decoration: none;
-  padding: 10px 30px;
-  margin-left: 15px;
-}
-
-.button--grey:hover {
-  color: #fff;
-  background-color: #35495e;
-}
 </style>
