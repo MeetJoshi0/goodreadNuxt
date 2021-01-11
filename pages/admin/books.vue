@@ -36,6 +36,7 @@
       <form
         ref="form"
         title="Scrollable Content"
+        encrypt="multipart/form-data"
         @submit.stop.prevent="handleSubmit"
       >
         <div v-if="isEdit">
@@ -92,7 +93,7 @@
           :state="publicationYearState"
           label="Publication Year"
           label-for="publicationYear-input"
-          invalid-feedback="publication Year is required"
+          :invalid-feedback="publicationYearMessage"
         >
           <b-form-input
             id="publicationYear-input"
@@ -105,10 +106,37 @@
         <b-form-group
           label="Average Rating"
           label-for="avgRating-input"
-          invalid-feedback="Average Rating is required"
+          :invalid-feedback="avgRatingMessage"
         >
-          <b-form-rating v-model="avgRating" variant="primary" class="mb-2" />
+          <b-form-input
+            id="avgRating-input"
+            v-model="avgRating"
+            :state="avgRatingState"
+            type="number"
+            required
+          />
         </b-form-group>
+        <div class="preview-image-container d-flex align-items-end">
+          <img v-if="imageUrl" :src="imageUrl" class="m-1">
+
+          <b-form-file
+            v-model="bookImage"
+            :state="Boolean(bookImage)"
+            class="m-1"
+            placeholder="Drop book image here..."
+            drop-placeholder="Drop image here..."
+            accept="image/*"
+          />
+        </div>
+        <b-button v-if="showButton" size="md" :disabled="isUpload" variant="success" @click="uploadImage">
+          <div v-if="!isUpload">
+            Upload
+          </div>
+          <b-spinner v-if="isLoading" small />
+          <div v-if="isUploadedText">
+            Upload Completed
+          </div>
+        </b-button>
         <b-dropdown
           id="dropdown-1"
           :text="selectedGenre"
@@ -125,65 +153,76 @@
         </b-dropdown>
       </form>
     </b-modal>
-    <div class="d-flex justify-content-end mb-2">
-      <b-icon
-        v-if="s"
-        icon="x-circle"
-        style="height: 25px; width: 25px;"
-        class="mr-2"
-        variant="danger"
-        @click="clearSearch"
-      />
-      <b-form-input
-        v-model="s"
-        size="sm"
-        class="mr-sm-2"
-        style="max-width: 20vw;"
-        placeholder="Search"
-      />
-      <b-button size="sm" class="my-2 my-sm-0 mx-2" @click="search">
-        Search
-      </b-button>
+    <div v-if="items.length !== 0">
+      <div class="d-flex justify-content-end mb-2">
+        <b-icon
+          v-if="s"
+          icon="x-circle"
+          style="height: 25px; width: 25px;"
+          class="mr-2"
+          variant="danger"
+          @click="clearSearch"
+        />
+        <b-form-input
+          v-model="s"
+          size="sm"
+          class="mr-sm-2"
+          style="max-width: 20vw;"
+          placeholder="Search"
+        />
+        <b-button size="sm" class="my-2 my-sm-0 mx-2" @click="search">
+          Search
+        </b-button>
+      </div>
+      <div class="float-right mb-2">
+        <b-button v-b-modal.modal-scrollable variant="info">
+          Add Book
+        </b-button>
+      </div>
+      <b-table striped hover :items="items" :fields="fields">
+        <template #cell(Utility)="data">
+          <b-button-group>
+            <b-button
+              v-b-modal.modal-scrollable
+              variant="info"
+              @click="edit(data.item.ISBN)"
+            >
+              Edit
+            </b-button>
+            <b-button
+              v-b-modal.askBookDelete
+              variant="danger"
+              @click="selectDelete(data.item.ISBN)"
+            >
+              Delete
+            </b-button>
+          </b-button-group>
+        </template>
+      </b-table>
+      <b-button-group>
+        <b-button variant="dark" @click="prev">
+          Prev
+        </b-button>
+        <b-button variant="success" @click="next">
+          Next
+        </b-button>
+      </b-button-group>
     </div>
-    <div class="float-right mb-2">
-      <b-button v-b-modal.modal-scrollable variant="info">
-        Add Book
-      </b-button>
+    <div v-if="items.length === 0" class="d-flex flex-column">
+      <div>
+        Sorry No Books Available
+      </div>
+      <nuxt-link to="/admin/books">
+        <b-button variant="success">
+          Go to Home
+        </b-button>
+      </nuxt-link>
     </div>
-    <b-table striped hover :items="items" :fields="fields">
-      <template #cell(Utility)="data">
-        <b-button-group>
-          <b-button
-            v-b-modal.modal-scrollable
-            variant="info"
-            @click="edit(data.item.ISBN)"
-          >
-            Edit
-          </b-button>
-          <b-button
-            v-b-modal.askBookDelete
-            variant="danger"
-            @click="selectDelete(data.item.ISBN)"
-          >
-            Delete
-          </b-button>
-        </b-button-group>
-      </template>
-    </b-table>
-    <b-button-group>
-      <b-button variant="dark" @click="prev">
-        Prev
-      </b-button>
-      <b-button variant="success" @click="next">
-        Next
-      </b-button>
-    </b-button-group>
   </div>
 </template>
 
 <script>
 /* eslint-disable no-labels */
-/* eslint-disable no-console */
 /* eslint-disable eqeqeq */
 export default {
   watchQuery: true,
@@ -193,15 +232,14 @@ export default {
     await store.dispatch('fetchGenres')
     const page = route.query.page || 1
     const limit = route.query.limit || 10
-    const pageLimitObj = {
+    const query = {
       page,
       limit
     }
     if (route.query.search) {
-      await store.dispatch('fetchBooks', { search: route.query.search, page, limit })
-    } else {
-      await store.dispatch('fetchBooks', { pageLimitArg: pageLimitObj })
+      query.search = route.query.search
     }
+    await store.dispatch('fetchBooks', query)
   },
   data () {
     return {
@@ -226,19 +264,59 @@ export default {
       publicationYear: '',
       publicationYearState: null,
       avgRating: 1,
+      avgRatingState: null,
       isEdit: false,
       editISBN: null,
       selectedBook: null,
       s: this.$route.query.search ? this.$route.query.search : '',
-      selectDeleteIsbn: null
+      selectDeleteIsbn: null,
+      bookImage: null,
+      imageUrl: '',
+      isLoading: false,
+      disable: false,
+      publicationYearMessage: 'Publication Year Is Required',
+      avgRatingMessage: 'Average Rating is Required'
     }
   },
   computed: {
+    showButton () {
+      if (this.bookImage) {
+        return true
+      } else {
+        return false
+      }
+    },
     genres () {
       return this.$store.getters.getGenres()
     },
     items () {
       return this.$store.getters.getBooks()
+    },
+    isUpload () {
+      if (!this.isEdit) {
+        if (this.isLoading || !this.bookImage || this.imageUrl) {
+          return true
+        } else {
+          return false
+        }
+      } else if (this.isLoading || this.bookImage == null || this.disable) {
+        return true
+      } else {
+        return false
+      }
+    },
+    isUploadedText () {
+      if (!this.isEdit) {
+        if (this.imageUrl) {
+          return true
+        } else {
+          return false
+        }
+      } else if (this.disable) {
+        return true
+      } else {
+        return false
+      }
     }
   },
   methods: {
@@ -252,7 +330,6 @@ export default {
     next () {
       this.page++
       let query
-      console.log(this.$route)
       if (this.$route.query.search) {
         query = {
           page: this.page,
@@ -286,10 +363,6 @@ export default {
         this.$router.push({ name: this.$route.name, query })
       }
     },
-    getBooks () {
-      this.$router.push(`/admin/books?page=${this.page}&limit=${this.limit}`)
-      this.$store.dispatch('fetchBooks')
-    },
     cancle () {
       this.isEdit = false
     },
@@ -305,8 +378,6 @@ export default {
       }
     },
     edit (ISBN) {
-      // eslint-disable-next-line no-console
-      console.log(ISBN)
       this.isEdit = true
       this.editISBN = ISBN
     },
@@ -318,10 +389,8 @@ export default {
         Title: this.title,
         Author: this.author,
         publication_Year: this.publicationYear,
-        Image_url:
-          'http://images.amazon.com/images/P/0596004613.01._PE30_PI_SCMZZZZZZZ_.jpg',
-        Image_URL_S:
-          'http://images.amazon.com/images/P/0596004613.01._PE30_PI_SCMZZZZZZZ_.jpg'
+        Image_url: this.imageUrl,
+        Image_URL_S: this.imageUrl
       }
       await this.$store.dispatch('editBook', bookObj)
       this.$bvModal.show('bookEdited')
@@ -362,10 +431,8 @@ export default {
         Title: this.title,
         Author: this.author,
         publication_Year: this.publicationYear,
-        Image_url:
-          'http://images.amazon.com/images/P/0596004613.01._PE30_PI_SCMZZZZZZZ_.jpg',
-        Image_URL_S:
-          'http://images.amazon.com/images/P/0596004613.01._PE30_PI_SCMZZZZZZZ_.jpg'
+        Image_url: this.imageUrl,
+        Image_URL_S: this.imageUrl
       }
       await this.$store.dispatch('addBook', bookObj)
       this.$bvModal.show('bookAdded')
@@ -398,13 +465,32 @@ export default {
       } else {
         this.authorState = true
       }
-      if (this.publicationYear == '' || this.publicationYear > 2021) {
+      if (this.publicationYear == '') {
         this.publicationYearState = false
+      } else if (this.publicationYear > 2021) {
+        this.publicationYearState = false
+        this.publicationYearMessage = 'Publication Year Must be less than or equal to current Year'
       } else {
         this.publicationYearState = true
       }
 
-      if (this.isbnState && this.titleState && this.authorState && this.publicationYearState) {
+      if (this.avgRating === null) {
+        this.avgRatingState = false
+      } else if (this.avgRating < 1 || this.avgRating > 5) {
+        this.avgRatingState = false
+        this.avgRatingMessage = 'The Rating must be between 1 and 5'
+      } else {
+        this.avgRatingState = true
+      }
+
+      if (
+        this.isbnState &&
+        this.titleState &&
+        this.authorState &&
+        this.publicationYearState &&
+        this.imageUrl &&
+        this.avgRatingState
+      ) {
         valid = true
       } else {
         valid = false
@@ -430,6 +516,8 @@ export default {
         this.avgRatingState = true
         this.selectedGenre = seletctedGenre.name
         this.selectedGenreId = seletctedGenre.id
+        this.imageUrl = this.selectedBook.Image_url
+        this.bookImage = null
       } else {
         this.isbn = ''
         this.isbnState = null
@@ -443,6 +531,8 @@ export default {
         this.avgRatingState = null
         this.selectedGenre = 'Art'
         this.selectedGenreId = 1
+        this.imageUrl = ''
+        this.bookImage = null
       }
     },
     handleOk (bvModalEvt) {
@@ -456,12 +546,12 @@ export default {
       if (!this.checkFormValidity()) {
         return
       }
-      // Push the name to submitted names
       if (this.isEdit) {
         this.editBook()
       } else {
         this.addBook()
       }
+
       // Hide the modal manually
       this.$nextTick(() => {
         this.$bvModal.hide('modal-scrollable')
@@ -470,6 +560,21 @@ export default {
     selectGenre (id, name) {
       this.selectedGenre = name
       this.selectedGenreId = id
+    },
+    async uploadImage () {
+      this.isLoading = true
+      const formData = new FormData()
+      formData.append('file', this.bookImage)
+      await this.$axios.$post('/upload', formData).then(
+        (res) => {
+          this.imageUrl = res.url
+          this.isLoading = false
+          this.disable = true
+        },
+        () => {
+          this.isLoading = false
+        }
+      )
     }
   }
 }
@@ -479,5 +584,11 @@ export default {
 .my-class /deep/ .dropdown-menu {
   max-height: 200px;
   overflow-y: auto;
+}
+.preview-image-container{
+  width: 100%;
+  background-color: rgb(243, 243, 243);
+  margin-top: 20px;
+  margin-bottom: 5px;
 }
 </style>
