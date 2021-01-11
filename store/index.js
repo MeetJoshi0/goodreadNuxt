@@ -1,8 +1,6 @@
-/* eslint-disable object-shorthand */
-/* eslint-disable no-console */
 import Vuex from 'vuex'
 import jwt from 'jsonwebtoken'
-
+import queryGenerator from '../static/js/queryGenerator'
 const cookieparser = process.server ? require('cookieparser') : undefined
 
 const compareObjects = (object1, object2, key) => {
@@ -27,12 +25,15 @@ const createStore = () => {
         email: '',
         role: ''
       },
+      bookCount: null,
+      userCount: null,
+      genreCount: null,
       books: [],
       genres: [],
       users: [],
       reads: [],
-      readsBookData: [],
       userReview: [],
+      bookReview: [],
       book: null,
       genre: null
     }),
@@ -72,14 +73,20 @@ const createStore = () => {
       SETREADS (state, reads) {
         state.reads = reads
       },
-      SETREADSBOOKDATA (state, data) {
-        state.readsBookData.push(data)
-      },
-      RESETREADSBOOKDATA (state) {
-        state.readsBookData = []
-      },
       SETUSERREVIEW (state, reviews) {
         state.userReview = reviews
+      },
+      SETBOOKREVIEW (state, reviews) {
+        state.bookReview = reviews
+      },
+      SETUSERCOUNT (state, count) {
+        state.userCount = count
+      },
+      SETBOOKCOUNT (state, count) {
+        state.bookCount = count
+      },
+      SETGENRECOUNT (state, count) {
+        state.genreCount = count
       }
     },
     getters: {
@@ -104,12 +111,24 @@ const createStore = () => {
       getReads: state => () => {
         return state.reads
       },
-      getReadsBookData: state => () => {
-        return state.readsBookData
-      },
       getUserReview: state => () => {
         return state.userReview
+      },
+      getBookReview: state => () => {
+        return state.bookReview
+      },
+      getBookReviewCount: state => () => {
+        return state.bookReview.length
+      },
+      getDashbordData: state => () => {
+        const dashbordData = {
+          book: state.bookCount,
+          genre: state.genreCount,
+          user: state.userCount
+        }
+        return dashbordData
       }
+
     },
     actions: {
       nuxtServerInit ({ commit }, { req }) {
@@ -122,7 +141,7 @@ const createStore = () => {
               commit('setAuth', token)
             }
           } catch (err) {
-            // No valid cookie found
+            // eslint-disable-next-line no-console
             console.log(err)
           }
         }
@@ -136,6 +155,7 @@ const createStore = () => {
             commit('SETUSERS', res.Users)
           },
           (err) => {
+            // eslint-disable-next-line no-console
             console.log(err)
           }
         )
@@ -146,6 +166,7 @@ const createStore = () => {
             dispatch('fetchUsers')
           },
           (err) => {
+            // eslint-disable-next-line no-console
             console.log(err)
           }
         )
@@ -156,6 +177,42 @@ const createStore = () => {
             dispatch('fetchUsers')
           },
           (err) => {
+            // eslint-disable-next-line no-console
+            console.log(err)
+          }
+        )
+      },
+
+      //! admin Dashbord Apis
+
+      getBookCount ({ commit }) {
+        return this.$axios.$get('/book/get-book-count').then(
+          (res) => {
+            commit('SETBOOKCOUNT', res.count)
+          }, (err) => {
+            // eslint-disable-next-line no-console
+            console.log(err)
+          }
+        )
+      },
+
+      getGenreCount ({ commit }) {
+        return this.$axios.$get('/genre/get-genre-count').then(
+          (res) => {
+            commit('SETGENRECOUNT', res.count)
+          }, (err) => {
+            // eslint-disable-next-line no-console
+            console.log(err)
+          }
+        )
+      },
+
+      getUserCount ({ commit }) {
+        return this.$axios.$get('/user/get-user-count').then(
+          (res) => {
+            commit('SETUSERCOUNT', res.count)
+          }, (err) => {
+            // eslint-disable-next-line no-console
             console.log(err)
           }
         )
@@ -174,16 +231,18 @@ const createStore = () => {
             commit('SETGENRES', genre)
           },
           (err) => {
+            // eslint-disable-next-line no-console
             console.log(err)
           }
         )
       },
       fetchGenreById ({ commit }, id) {
-        return this.$axios.$get(`/genre/${id}`).then(
+        return this.$axios.$get(`/genre/id/${id}`).then(
           (res) => {
             commit('SETGENREBYID', res.genre[0])
           },
           (err) => {
+            // eslint-disable-next-line no-console
             console.log(err)
           }
         )
@@ -191,13 +250,14 @@ const createStore = () => {
       addGenres ({ dispatch }, name) {
         return this.$axios
           .$post('/genre/add-genre', {
-            name: name
+            name
           })
           .then(
             () => {
               dispatch('fetchGenres')
             },
             (err) => {
+              // eslint-disable-next-line no-console
               console.log(err)
             }
           )
@@ -212,6 +272,7 @@ const createStore = () => {
               dispatch('fetchGenres')
             },
             (err) => {
+              // eslint-disable-next-line no-console
               console.log(err)
             }
           )
@@ -222,6 +283,7 @@ const createStore = () => {
             dispatch('fetchGenres')
           },
           (err) => {
+            // eslint-disable-next-line no-console
             console.log(err)
           }
         )
@@ -229,71 +291,48 @@ const createStore = () => {
 
       //! admin Books Apis
 
-      fetchBooks ({ commit }, args) {
-        if (args.search) {
-          return this.$axios.$get(`/book?search=${args.search}`).then((res) => {
-            commit('SETBOOKS', res.result)
-          })
-        } else {
-          return this.$axios
-            .$get(`/book?page=${args.pageLimitArg.page}&limit=${args.pageLimitArg.limit}`)
-            .then(
-              (res) => {
-                commit('SETBOOKS', res.book)
-              },
-              (err) => {
-                console.log(err)
-              }
-            )
-        }
+      fetchBooks ({ commit }, queryObj) {
+        const query = queryGenerator(queryObj)
+        return this.$axios
+          .$get('/book?' + query)
+          .then(
+            (res) => {
+              commit('SETBOOKS', res.book)
+            },
+            (err) => {
+              // eslint-disable-next-line no-console
+              console.log(err)
+            }
+          )
       },
       addBook (context, bookObj) {
-        return this.$axios.$post('book/add-book', bookObj).then(
-          (res) => {
-            console.log(res)
-          },
-          (err) => {
-            console.log(err)
-          }
-        )
+        return this.$axios.$post('book/add-book', bookObj)
       },
       editBook (context, bookObj) {
-        return this.$axios.$patch('/book/edit-book', bookObj).then(
-          (res) => {
-            console.log(res)
-          },
-          (err) => {
-            console.log(err)
-          }
-        )
+        return this.$axios.$patch('/book/edit-book', bookObj)
       },
       deleteBook (context, isbn) {
-        return this.$axios.$delete(`/book/delete/isbn/${isbn}`).then(
-          (res) => {
-            console.log(res)
-          },
-          (err) => {
-            console.log(err)
-          }
-        )
+        return this.$axios.$delete(`/book/delete/isbn/${isbn}`)
       },
       fetchBookByGenre ({ commit }, args) {
-        return this.$axios.$get(`/book/genre?genre=${args.genre}&page=${args.page}&limit=${args.limit}`).then(
+        const query = queryGenerator(args)
+        return this.$axios.$get(`/book/genre?${query}`).then(
           (res) => {
             commit('SETBOOKS', res.book)
           }, (err) => {
+            // eslint-disable-next-line no-console
             console.log(err)
           }
         )
       },
       fetchBookByIsbn ({ commit, dispatch }, ISBN) {
-        console.log(ISBN)
         return this.$axios.$get(`/book/isbn/${ISBN}`).then(
           async (res) => {
             commit('SETBOOKBYISBN', res.book[0])
             await dispatch('fetchGenreById', res.book[0].Gener_id)
           },
           (err) => {
+            // eslint-disable-next-line no-console
             console.log(err)
           }
         )
@@ -305,50 +344,31 @@ const createStore = () => {
           (res) => {
             commit('SETREADS', res.reads)
           }, (err) => {
+            // eslint-disable-next-line no-console
             console.log(err)
           }
         )
       },
-      fetchReadsBookData ({ commit }, args) {
-        let bookDataObj
-        const read = args.read
-        if (args.reLoad) {
-          commit('RESETREADSBOOKDATA')
-        }
-        return this.$axios.$get(`/book/id/${read.book_id}`)
-          .then((res) => {
-            bookDataObj = {
-              id: read.id,
-              status: read.status,
-              Title: res.book[0].Title,
-              Author: res.book[0].Author,
-              image: res.book[0].Image_url
-            }
-            commit('SETREADSBOOKDATA', bookDataObj)
-          }, (err) => {
-            console.log(err)
-          })
-      },
       completeRead ({ dispatch }, readId) {
-        this.$axios.$patch('/read/read-complete', {
+        return this.$axios.$patch('/read/read-complete', {
           id: readId
         }).then((res) => {
-          console.log(res)
-          dispatch('fetchReads')
         }, (err) => {
+          // eslint-disable-next-line no-console
           console.log(err)
         })
       },
       addRead ({ dispatch }, bookId) {
-        this.$axios.$post('/read/add-read', {
+        return this.$axios.$post('/read/add-read', {
           book_id: bookId
+        // eslint-disable-next-line no-console
         }).then(res => console.log(res), err => console.log(err))
       },
       deleteRead ({ dispatch }, readId) {
         return this.$axios.$delete(`/read/delete/${readId}`).then(async (res) => {
-          console.log(res)
           await dispatch('fetchReads')
         }, (err) => {
+          // eslint-disable-next-line no-console
           console.log(err)
         })
       },
@@ -359,6 +379,47 @@ const createStore = () => {
         return this.$axios.$get('/review/user-book').then((res) => {
           commit('SETUSERREVIEW', res.reviews)
         }, (err) => {
+          // eslint-disable-next-line no-console
+          console.log(err)
+        })
+      },
+      addReview ({ commit }, review) {
+        return this.$axios.$post('/review/add-review',
+          {
+            read_id: review.id,
+            rating: review.rating,
+            comment: review.comment
+          }
+        )
+      },
+      editReview ({ dispatch }, review) {
+        return this.$axios.$patch(`/review/edit-review/${review.id}`,
+          {
+            rating: review.rating,
+            comment: review.comment
+          }
+        ).then((res) => {
+          dispatch('fetchUserReview')
+        }, (err) => {
+          // eslint-disable-next-line no-console
+          console.log(err)
+        })
+      },
+      deleteReview ({ dispatch }, id) {
+        return this.$axios.$delete(`/review/delete/${id}`).then((res) => {
+          this.dispatch('fetchUserReview')
+        }, (err) => {
+          // eslint-disable-next-line no-console
+          console.log(err)
+        })
+      },
+      fetchBookReviews ({ commit }, bookid) {
+        return this.$axios.$post('/review/book-review', {
+          bId: bookid
+        }).then((res) => {
+          commit('SETBOOKREVIEW', res.reviews)
+        }, (err) => {
+          // eslint-disable-next-line no-console
           console.log(err)
         })
       }

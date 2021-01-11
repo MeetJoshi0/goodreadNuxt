@@ -6,7 +6,7 @@
       @ok="Delete()"
     >
       <p>
-        Are You Sure to Deleted?
+        Want To User this User?
       </p>
     </b-modal>
     <b-modal

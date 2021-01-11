@@ -1,7 +1,12 @@
+/* eslint-disable no-console */
 <template>
   <div>
     <div>
-      <b-navbar toggleable="lg" variant="light" class="shadow-sm rounded bg-white">
+      <b-navbar
+        toggleable="lg"
+        variant="light"
+        class="shadow-sm rounded bg-white"
+      >
         <b-navbar-brand>
           <nuxt-link to="/" class="title">
             Good Reads
@@ -22,12 +27,34 @@
                 My Reviews
               </nuxt-link>
             </b-nav-item>
+            <b-nav-item v-if="isAdmin">
+              <nuxt-link to="/admin" class="nav-link">
+                Admin Dashbord
+              </nuxt-link>
+            </b-nav-item>
           </b-navbar-nav>
           <!-- Right aligned nav items -->
           <b-navbar-nav class="ml-auto">
             <b-nav-form>
-              <b-form-input v-model="search" size="sm" class="mr-sm-2" placeholder="Search" />
-              <b-button size="sm" class="my-2 my-sm-0 search-button" @click="searchRoute">
+              <b-icon
+                v-if="search"
+                icon="x-circle"
+                style="height: 25px; width: 25px;"
+                class="mr-2"
+                variant="danger"
+                @click="clearSearch"
+              />
+              <b-form-input
+                v-model="search"
+                size="sm"
+                class="mr-sm-2"
+                placeholder="Search"
+              />
+              <b-button
+                size="sm"
+                class="my-2 my-sm-0 search-button"
+                @click="searchRoute"
+              >
                 Search
               </b-button>
             </b-nav-form>
@@ -40,18 +67,11 @@
                 Sign Out
               </b-dropdown-item>
             </b-nav-item-dropdown>
-
-            <b-nav-item-dropdown v-if="!isLogin" right>
-              <!-- Using 'button-content' slot -->
-              <template #button-content>
-                <b-avatar variant="light" />
-              </template>
-              <b-dropdown-item href="#">
-                <nuxt-link to="/login">
-                  Login
-                </nuxt-link>
-              </b-dropdown-item>
-            </b-nav-item-dropdown>
+            <b-nav-item v-if="!isLogin">
+              <nuxt-link to="/login">
+                Login
+              </nuxt-link>
+            </b-nav-item>
           </b-navbar-nav>
         </b-collapse>
       </b-navbar>
@@ -77,28 +97,44 @@ export default {
       } else {
         return false
       }
+    },
+    isAdmin () {
+      if (this.$store.state.Auth.token && this.$store.state.Auth.role === 'A') {
+        return true
+      } else {
+        return false
+      }
     }
   },
   methods: {
+    clearSearch () {
+      this.search = ''
+      this.$router.push({ path: this.$route.path })
+    },
     logout () {
       Cookie.remove('token')
       this.$store.commit('LOGOUT')
+      this.$router.go('/')
     },
     searchRoute () {
-      this.$router.push(`?search=${this.search}`)
+      this.$router.push({ path: '/', query: { search: this.search } })
     }
   }
 }
 </script>
 <style scoped>
-.title{
+.title {
   color: #20ce88;
+  font-size: 2rem;
 }
-.nav-link{
+.nav-link {
   color: grey;
 }
-.search-button{
+.search-button {
   background-color: #20ce88;
   border: #20ce88;
+}
+a.nuxt-link-active {
+    color: #20ce88 !important;
 }
 </style>

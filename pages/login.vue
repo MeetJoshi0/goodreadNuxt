@@ -4,7 +4,7 @@
     <b-alert :show="showAlert" variant="danger">
       Auth Fail please enter correct Email and Password
     </b-alert>
-    <div class="h4 text-primary">
+    <div class="h4 mt-4 text-primary">
       Login
     </div>
     <b-form @submit="onSubmit">
@@ -24,7 +24,7 @@
         placeholder="Enter Password"
         required
       />
-      <b-button type="submit" variant="primary">
+      <b-button type="submit" class="form-control" variant="primary">
         Submit
       </b-button>
     </b-form>
@@ -77,16 +77,12 @@ export default {
           token = res.token
           this.$store.commit('setAuth', token)
           Cookie.set('token', token)
-          if (this.$store.state.Auth.role == 'U') {
-            this.$router.replace('/')
-          } else {
-            this.$router.replace('/admin')
-          }
+          this.$router.replace('/')
         },
         (err) => {
           console.log(err.message)
           this.showAlert = true
-          // this.$router.push('/signup')
+          this.$router.push('/signup')
         }
       )
     }
@@ -94,12 +90,19 @@ export default {
 }
 </script>
 
-<style>
+<style scoped>
 .login-panel{
-   max-width: 30vw;
+   max-width: 400px;
+   height: 300px;
 }
 .signup-color{
   color: rgb(138, 138, 138);
   font-size: 0.7rem;
+}
+@media only screen and (max-width: 600px) {
+  .login-panel{
+    max-width: 100%;
+    height: 300px;
+  }
 }
 </style>

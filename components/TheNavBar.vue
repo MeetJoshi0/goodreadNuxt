@@ -1,8 +1,8 @@
 <template>
   <div>
     <b-navbar toggleable="lg" type="light" class="shadow p-3 mb-5 rounded bg-nav-colour">
-      <b-navbar-brand href="#" class="font-weight-normal">
-        <div class="nav-logo-colour h2">
+      <b-navbar-brand to="/" class="font-weight-normal">
+        <div class="nav-logo-colour">
           GoodReads
         </div>
       </b-navbar-brand>
@@ -35,7 +35,7 @@ export default {
     logout () {
       Cookie.remove('token')
       this.$store.commit('LOGOUT')
-      this.$router.replace('login')
+      this.$router.push({ path: '/login' })
     }
   }
 }

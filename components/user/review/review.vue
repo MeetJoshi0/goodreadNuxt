@@ -2,7 +2,7 @@
   <div class="col">
     <div class="card">
       <h5 class="card-header">
-        {{ data.read[0].book_id }}
+        {{ data.book }}
       </h5>
       <div class="card-body">
         <h5 class="card-title">
@@ -38,10 +38,10 @@ export default {
   },
   methods: {
     editReview () {
-      console.log('edit' + this.data.id)
+      this.$emit('edit', this.data.id)
     },
     deleteReview () {
-      console.log('delete' + this.data.id)
+      this.$emit('delete', this.data.id)
     }
   }
 }
